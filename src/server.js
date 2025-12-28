@@ -1,6 +1,6 @@
-require('dotenv').config();
-const ConnectDB = require('./config/db');
-const app = require('./app');
+import 'dotenv/config';
+import ConnectDB from './config/db.js';
+import app from './app.js';
 
 const PORT = process.env.PORT || 5000;
 
@@ -9,13 +9,13 @@ ConnectDB()
         app.on("error", (error) => {
             console.error("EXPRESS APP ERROR: ", error);
             throw error; //Port 5000 is busy, Server crash.
-        }); 
+        });
 
         app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);
-        })
+        });
     })
     .catch((error) => {
         console.log("MongoDB Connection Failed !!!", error); //Backup for db.js.
-    })
+    });
 

@@ -1,6 +1,7 @@
 {
   "name": "project",
   "version": "1.0.0",
+  "type": "module",
   "description": "Gas Lighter 1 Attempt",
   "main": "index.js",
   "scripts": {
