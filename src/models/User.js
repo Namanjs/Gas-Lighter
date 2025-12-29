@@ -42,7 +42,7 @@ const userSchema = new Schema({
         default: 0
     },
     refresh_token: {
-        type: string
+        type: String
     }
 }, {
     timestamps: {
@@ -51,13 +51,15 @@ const userSchema = new Schema({
     }
 });
 
-userSchema.pre("save", async function (next) { // => function can't use this keyword so using normal function
+
+userSchema.pre("save", async function () { 
+    
     if(!this.isModified("password")){
-        return next();
+        return; 
     }
-    this.password = await bcrypt.hash(this.password, 10); // 10 is just making sure the hacker could not brute force it
-    next();
-})
+
+    this.password = await bcrypt.hash(this.password, 10);
+});
 
 userSchema.methods.isPasswordCorrect = async function (password){
     return await bcrypt.compare(password, this.password);
