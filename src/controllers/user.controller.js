@@ -76,7 +76,7 @@ const loginUser = async (req, res) => {
     try {
         const { email, username, password } = req.body;
     
-        if(!(email || username || password)){
+        if((!username && !email) || !password){
             return res.status(400).json({
                 message: "All fields are required"
             })
@@ -109,12 +109,78 @@ const loginUser = async (req, res) => {
         }
 
         const refreshToken = user.generateRefreshToken();
+
+        if(!refreshToken){
+            return res.status(500).json({
+                message: "Something went wrong while generating refresh token"
+            })
+        }
+
+        user.refresh_token = refreshToken;
+
+        await user.save({
+            validateBeforeSave: false
+        })
+
+        const loggedInUser = await User.findById(user._id).select("-password -refresh_token");
+
+        const options = {
+            httpOnly: true,
+            secure: true // will work in testing but might fail while connecting to frontend
+        }
+
+        return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json({
+            status: 200,
+            data: {
+                user: loggedInUser,
+                accessToken,
+                refreshToken
+            },
+            message: "User successfully logged in"
+        })
     } catch (error) {
-        
+        console.log(error);
+        return res.status(500).json({
+            message: "Something went wrong while logging in user"
+        })
     }
+}
+
+const logoutUser = async (req, res) => {
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refresh_token: undefined
+            }
+        },
+        {
+            new: true,
+            runValidators: true
+        }
+    );
+
+    const options = {
+        httpOnly: true,
+        secure: true // might give trouble in production
+    }
+
+    return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json({
+        status: 200,
+        message: "User logout successfully"
+    })
 }
 
 export {
     registerUser,
-    loginUser
+    loginUser,
+    logoutUser
 }
