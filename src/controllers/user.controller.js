@@ -1,5 +1,6 @@
 import { User } from "../models/User.js"
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
+import mongoose from "mongoose";
 
 const registerUser = async (req, res) => {
     try {
@@ -265,11 +266,144 @@ const updateAccountDetails = async (req, res) => {
     }
 }
 
+const updateAvatar = async (req, res) => {
+    try {
+        const newAvatarLocalPath = req.file?.path;
+
+        if (!newAvatarLocalPath) {
+            return res.status(400).json({
+                message: "New avatar path is required for updation"
+            })
+        }
+
+        const avatarResponse = await uploadOnCloudinary(newAvatarLocalPath);
+
+        if (!avatarResponse.url) {
+            return res.status(500).json({
+                message: "Error while uploading avatar"
+            })
+        }
+
+        // --- CORRECTION HERE ---
+        // We use .avatar_url because you confirmed that is the Schema name
+        const oldAvatarUrl = req.user.avatar_url;
+
+        if (oldAvatarUrl) {
+            const publicId = oldAvatarUrl.split("/").pop().split(".")[0];
+            await deleteFromCloudinary(publicId);
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $set: {
+                    avatar_url: avatarResponse.url // Matches Schema
+                }
+            },
+            {
+                new: true
+            }
+        ).select("-password -refresh_token")
+
+        return res.status(200).json({
+            status: 200,
+            User: user,
+            message: "Avatar updated successfully"
+        })
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            message: "Something went wrong while updating avatar"
+        })
+    }
+}
+
+const getUserChannelProfile = async (req, res) => {
+    try {
+        const { username } = req.params;
+
+        if (!username?.trim()) {
+            return res.status(400).json({
+                message: "Username is required"
+            })
+        }
+
+        const channel = await User.aggregate([
+            {
+                $match: {
+                    username: username.toLowerCase()
+                }
+            },
+            {
+                $lookup: {
+                    from: "follows",
+                    localField: "_id",
+                    foreignField: "following",
+                    as: "followersList"
+                }
+            },
+            {
+                $lookup: {
+                    from: "follows",
+                    localField: "_id",
+                    foreignField: "follower",
+                    as: "followingList"
+                }
+            },
+            {
+                $addFields: {
+                    followersCount: { $size: "$followersList" },
+                    followingCount: { $size: "$followingList" },
+                    isFollowed: {
+                        $cond: {
+                            if: { $in: [req.user?._id, "$followersList.follower"] },
+                            then: true,
+                            else: false
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    fullName: 1,
+                    username: 1,
+                    followersCount: 1,
+                    followingCount: 1,
+                    isFollowed: 1,
+                    avatar: 1, // or avatar_url
+                    coverImage: 1,
+                    email: 1
+                }
+            }
+        ]);
+
+        if (!channel?.length) {
+            return res.status(404).json({
+                message: "User channel does not exist"
+            });
+        }
+
+        return res.status(200).json({
+            status: 200,
+            data: channel[0],
+            message: "User profile fetched successfully"
+        });
+    } catch (error) {
+        console.error("Error fetching channel profile:", error);
+        return res.status(500).json({
+            message: "Something went wrong while fetching the profile",
+            error: error.message
+        });
+    }
+}
+
+
 export {
     registerUser,
     loginUser,
     logoutUser,
     getCurrentUser,
     changeCurrentPassword,
-    updateAccountDetails
+    updateAccountDetails,
+    updateAvatar
 }

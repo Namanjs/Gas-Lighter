@@ -50,7 +50,7 @@ const userSchema = new Schema({
     }
 }, {
     timestamps: {
-        createdAt: "created_at",
+        createdAt: "created_at", // we wrote this string to change the name of createdAt to created_at for us, it has no other use
         updatedAt: "updated_at"
     }
 });
