@@ -1,0 +1,2 @@
+Twitter Handle:
+    what if the user gave a twitter handle which doesn't exist in the database so it won't show error but it might be a typing mistake and that handle actually exist in real life so when calling Grok review on that handle, it will show the cards containing someone else tweets and likes

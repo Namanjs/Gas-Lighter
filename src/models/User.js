@@ -31,7 +31,11 @@ const userSchema = new Schema({
     },
     twitter_handle: {
         type: String,
-        require: true
+        required: true,
+        match: [
+            /^[a-zA-Z0-9_]{4,15}$/, 
+            "Invalid Twitter handle. Must be 4-15 chars, alphanumeric or underscores."
+        ]
     },
     total_battles: {
         type: Number,
