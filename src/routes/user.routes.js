@@ -26,6 +26,8 @@ router.route("/changePassword").post(VerifyJwt, changeCurrentPassword);
 
 router.route("/update-account").patch(VerifyJwt, updateAccountDetails);
 
-router.route("/update-avatar").patch(VerifyJwt,upload.single("avatar"), updateAvatar);
+router.route("/update-avatar").patch(VerifyJwt, upload.single("avatar"), updateAvatar);
+
+router.route("/get-channel-profile/:username").get(VerifyJwt, getUserChannelProfile);
 
 export default router;

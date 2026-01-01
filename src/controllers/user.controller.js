@@ -43,7 +43,7 @@ const registerUser = async (req, res) => {
 
         const user = await User.create({
             display_name: display_name || username,
-            avatar: avatar?.url,
+            avatar_url: avatar?.url,
             email,
             password,
             username: username.toLowerCase(),
@@ -405,5 +405,6 @@ export {
     getCurrentUser,
     changeCurrentPassword,
     updateAccountDetails,
-    updateAvatar
+    updateAvatar,
+    getUserChannelProfile
 }
