@@ -1,3 +1,4 @@
+import { Follow } from "../models/Followers.js";
 import { User } from "../models/User.js"
 import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 import mongoose from "mongoose";
@@ -338,7 +339,7 @@ const getUserChannelProfile = async (req, res) => {
                 $lookup: {
                     from: "follows",
                     localField: "_id",
-                    foreignField: "following",
+                    foreignField: "following",// finding all the follow documents where our user id is in following, i.e no of followers
                     as: "followersList"
                 }
             },
@@ -346,7 +347,7 @@ const getUserChannelProfile = async (req, res) => {
                 $lookup: {
                     from: "follows",
                     localField: "_id",
-                    foreignField: "follower",
+                    foreignField: "follower",// finding all the follow document where our user id is in followes showing whom all he follows
                     as: "followingList"
                 }
             },
@@ -360,18 +361,26 @@ const getUserChannelProfile = async (req, res) => {
                             then: true,
                             else: false
                         }
+                    },
+                    isFollower: {
+                        $cond: {
+                            if: { $in: [req.user?._id, "$followingList.following"]},
+                            then: true,
+                            else: false
+                        }
                     }
                 }
             },
             {
                 $project: {
-                    fullName: 1,
+                    display_name: 1,
                     username: 1,
+                    twitter_handle: 1,
                     followersCount: 1,
                     followingCount: 1,
                     isFollowed: 1,
-                    avatar: 1, // or avatar_url
-                    coverImage: 1,
+                    isFollower: 1,
+                    avatar_url: 1, // or avatar_url
                     email: 1
                 }
             }
@@ -397,6 +406,57 @@ const getUserChannelProfile = async (req, res) => {
     }
 }
 
+const toggleFollow = async (req, res) => {
+    // follow successfully created now unfollow functionality
+    try {
+        const { channelId } = req.params;
+        const user = req.user;
+    
+        if(!channelId){
+            return res.status(400).json({
+                message: "Channel Id is required"
+            })
+        }
+    
+        const toBeFollowed = await User.findOne({_id: channelId});
+    
+        if(!toBeFollowed){
+            return res.status(404).json({
+                message: "Channel not found"
+            })
+        }
+    
+        if(channelId === user._id){
+            return res.status(401).json({
+                message: "You can't follow yourself"
+            })
+        }
+    
+        const followDocument = await Follow.create({
+            follower: user._id,
+            following: channelId
+        });
+    
+        const createdFollowDocument = await Follow.findById(followDocument._id);
+    
+        if(!createdFollowDocument){
+            return res.status(500).json({
+                message: "Something went wrong while creating the follow document"
+            })
+        }
+    
+        return res.status(201).json({
+            status: 201,
+            Follow_Document: createdFollowDocument,
+            message: "User successfully followed the channel"
+        })
+    } catch (error) {
+        console.log("Error while following", error);
+        return res.status(500).json({
+            message: "Something went wrong while following the channel"
+        })
+    }
+}
 
 export {
     registerUser,
@@ -406,5 +466,6 @@ export {
     changeCurrentPassword,
     updateAccountDetails,
     updateAvatar,
-    getUserChannelProfile
+    getUserChannelProfile,
+    toggleFollow
 }
