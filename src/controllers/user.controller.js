@@ -407,7 +407,6 @@ const getUserChannelProfile = async (req, res) => {
 }
 
 const toggleFollow = async (req, res) => {
-    // follow successfully created now unfollow functionality
     try {
         const { channelId } = req.params;
         const user = req.user;
@@ -417,18 +416,30 @@ const toggleFollow = async (req, res) => {
                 message: "Channel Id is required"
             })
         }
+
+        const foreginUser = await User.findOne({_id: channelId});
     
-        const toBeFollowed = await User.findOne({_id: channelId});
-    
-        if(!toBeFollowed){
+        if(!foreginUser){
             return res.status(404).json({
-                message: "Channel not found"
+                message: "User not found"
             })
         }
-    
-        if(channelId === user._id){
+
+        if(channelId === user._id.toString()){
             return res.status(401).json({
                 message: "You can't follow yourself"
+            })
+        }
+
+        const isAlreadyFollowing = await Follow.findOne({
+            follower: user._id,
+            following: channelId
+        })
+
+        if(isAlreadyFollowing){
+            await Follow.findByIdAndDelete(isAlreadyFollowing._id);
+            return res.status(200).json({
+                message: "Channel successfully unfollowed"
             })
         }
     
@@ -458,6 +469,66 @@ const toggleFollow = async (req, res) => {
     }
 }
 
+const refreshAccessToken = async (req, res) => {
+    try {
+        const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+        if (!incomingRefreshToken) {
+            return res.status(401).json({
+                message: "Unauthorized request: No refresh token provided"
+            });
+        }
+
+        const decodedToken = jwt.verify(
+            incomingRefreshToken,
+            process.env.REFRESH_TOKEN_SECRET
+        );
+
+        const user = await User.findById(decodedToken?._id);
+
+        if (!user) {
+            return res.status(401).json({
+                message: "Invalid refresh token: User not found"
+            });
+        }
+
+        if (incomingRefreshToken !== user?.refresh_token) {
+            return res.status(401).json({
+                message: "Refresh token is expired or used"
+            });
+        }
+
+        const newAccessToken = user.generateAccessToken();
+        const newRefreshToken = user.generateRefreshToken();
+
+        user.refresh_token = newRefreshToken;
+        await user.save({ validateBeforeSave: false });
+
+        const options = {
+            httpOnly: true,
+            secure: true
+        };
+
+        return res
+            .status(200)
+            .cookie("accessToken", newAccessToken, options)
+            .cookie("refreshToken", newRefreshToken, options)
+            .json({
+                status: 200,
+                data: {
+                    accessToken: newAccessToken,
+                    refreshToken: newRefreshToken
+                },
+                message: "Access token refreshed"
+            });
+
+    } catch (error) {
+        return res.status(401).json({
+            message: error?.message || "Invalid refresh token"
+        });
+    }
+}
+
 export {
     registerUser,
     loginUser,
@@ -467,5 +538,6 @@ export {
     updateAccountDetails,
     updateAvatar,
     getUserChannelProfile,
-    toggleFollow
+    toggleFollow,
+    refreshAccessToken
 }
